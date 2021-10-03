@@ -1,3 +1,4 @@
+import pickle
 from collections import OrderedDict
 import numpy as np
 import time
@@ -156,6 +157,11 @@ class RL_Trainer(object):
         """
 
         # TODO decide whether to load training data or use the current policy to collect more data
+        # First iteration
+        if itr == 0:
+            with open(load_initial_expertdata, 'rb') as f:
+                expert_data = pickle.load(f)
+            return expert_data, 0, None
         # HINT: depending on if it's the first iteration or not, decide whether to either
                 # (1) load the data. In this case you can directly return as follows
                 # ``` return loaded_paths, 0, None ```
@@ -163,10 +169,11 @@ class RL_Trainer(object):
                 # (2) collect `self.params['batch_size']` transitions
 
         # TODO collect `batch_size` samples to be used for training
+
         # HINT1: use sample_trajectories from utils
         # HINT2: you want each of these collected rollouts to be of length self.params['ep_len']
         print("\nCollecting data to be used for training...")
-        paths, envsteps_this_batch = TODO
+        paths, envsteps_this_batch = #TODO
 
         # collect more rollouts with the same policy, to be saved as videos in tensorboard
         # note: here, we collect MAX_NVIDEO rollouts, each of length MAX_VIDEO_LEN
