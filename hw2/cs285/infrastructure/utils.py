@@ -1,6 +1,8 @@
 import numpy as np
 import time
 import copy
+import gym
+import multiprocessing
 
 ############################################
 ############################################
@@ -55,13 +57,127 @@ def mean_squared_error(a, b):
 ############################################
 
 def sample_trajectory(env, policy, max_path_length, render=False, render_mode=('rgb_array')):
-    # TODO: get this from hw1
+    # initialize env for the beginning of a new rollout
+    ob = env.reset()  # HINT: should be the output of resetting the env
+    # init vars
+    obs, acs, rewards, next_obs, terminals, image_obs = [], [], [], [], [], []
+    steps = 0
+    while True:
+        # render image of the simulated env
+        if render:
+            if 'rgb_array' in render_mode:
+                if hasattr(env, 'sim'):
+                    image_obs.append(env.sim.render(camera_name='track', height=500, width=500)[::-1])
+                else:
+                    image_obs.append(env.render(mode=render_mode))
+            if 'human' in render_mode:
+                env.render(mode=render_mode)
+                time.sleep(env.model.opt.timestep)
+        # use the most recent ob to decide what to do
+        obs.append(ob)
+        ac = policy.get_action(ob)  # HINT: query the policy's get_action function
+        ac = ac[0]
+        acs.append(ac)
+
+        # take that action and record results
+        ob, rew, done, _ = env.step(ac)
+
+        # record result of taking that action
+        steps += 1
+        next_obs.append(ob)
+        rewards.append(rew)
+
+        rollout_done = 1 if done or steps >= max_path_length else 0
+        terminals.append(rollout_done)
+
+        if rollout_done:
+            break
+    return Path(obs, image_obs, acs, rewards, next_obs, terminals)
+
 
 def sample_trajectories(env, policy, min_timesteps_per_batch, max_path_length, render=False, render_mode=('rgb_array')):
-    # TODO: get this from hw1
+    """
+        Collect rollouts until we have collected min_timesteps_per_batch steps.
+    """
+    timesteps_this_batch = 0
+    paths = []
+    while timesteps_this_batch < min_timesteps_per_batch:
+        path = sample_trajectory(env, policy, max_path_length, render=render, render_mode=render_mode)
+        paths.append(path)
+        timesteps_this_batch += get_pathlength(path)
+    return paths, timesteps_this_batch
+
+def add_traj_to_queue(queue,env, policy, max_path_length, render=False, render_mode=('rgb_array')):
+    path = sample_trajectory(env, policy, max_path_length, render=render, render_mode=render_mode)
+    queue.put(path)
+
+def add_traj_to_queue_loop(queue,env, policy, max_path_length, render=False, render_mode=('rgb_array')):
+    while True:
+        path = sample_trajectory(env, policy, max_path_length, render=render, render_mode=render_mode)
+        queue.put(path)
+
+def sample_trajectories_parallel(env, policy, min_timesteps_per_batch, max_path_length, render=False, render_mode=('rgb_array')):
+    """
+        Collect rollouts until we have collected min_timesteps_per_batch steps.
+        Parallelized to use multiple cores
+    """
+    timesteps_this_batch = 0
+    paths = []
+    with multiprocessing.Pool() as pool:
+        # with concurrent.futures.ProcessPoolExecutor() as pool:
+        q = multiprocessing.Manager().Queue()
+        pool.apply_async(add_traj_to_queue, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue, (q, env, policy, max_path_length, render, render_mode))
+        while timesteps_this_batch < min_timesteps_per_batch:
+            path = q.get()
+            paths.append(path)
+            timesteps_this_batch += get_pathlength(path)
+            pool.apply_async(add_traj_to_queue, (q, env, policy, max_path_length, render, render_mode))
+    return paths, timesteps_this_batch
+
+def sample_trajectories_parallel_alt(env, policy, min_timesteps_per_batch, max_path_length, render=False, render_mode=('rgb_array')):
+    """
+        Collect rollouts until we have collected min_timesteps_per_batch steps.
+        Parallelized to use multiple cores
+    """
+    timesteps_this_batch = 0
+    paths = []
+    with multiprocessing.Pool() as pool:
+        # with concurrent.futures.ProcessPoolExecutor() as pool:
+        q = multiprocessing.Manager().Queue()
+        pool.apply_async(add_traj_to_queue_loop, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue_loop, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue_loop, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue_loop, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue_loop, (q, env, policy, max_path_length, render, render_mode))
+        pool.apply_async(add_traj_to_queue_loop, (q, env, policy, max_path_length, render, render_mode))
+        while timesteps_this_batch < min_timesteps_per_batch:
+            path = q.get()
+            paths.append(path)
+            timesteps_this_batch += get_pathlength(path)
+    return paths, timesteps_this_batch
+# TODO add sample_trajectories_parallel creating the actual while loop.
+# TODO create add_traj_to_queue, which simply executes sample_trajectory and adds the result to queue
+## NOTE: I will need to pass a copy of the environment (and possibly the policy) to the functions.
+## NOTE: it is also worth investigating the "persistent" process implementation as setting up the env every time might
+## result in too much overhead. Time the functions to figure out which is better.
+
+## NOTE: potentially create a class which handles the processes and dont close the processes each time, instead have them
+## run depending on an event.
 
 def sample_n_trajectories(env, policy, ntraj, max_path_length, render=False, render_mode=('rgb_array')):
-    # TODO: get this from hw1
+    """
+        Collect ntraj rollouts.
+    """
+    paths = []
+    for i in range(ntraj):
+        path = sample_trajectory(env, policy, max_path_length, render=render, render_mode=render_mode)
+        paths.append(path)
+    return paths
 
 ############################################
 ############################################

@@ -15,8 +15,8 @@ from cs285.infrastructure.logger import Logger
 from cs285.infrastructure.action_noise_wrapper import ActionNoiseWrapper
 
 # how many rollouts to save as videos to tensorboard
-MAX_NVIDEO = 2
-MAX_VIDEO_LEN = 40 # we overwrite this in the code below
+MAX_NVIDEO = 1
+MAX_VIDEO_LEN = 250 # we overwrite this in the code below
 
 
 class RL_Trainer(object):
@@ -60,7 +60,7 @@ class RL_Trainer(object):
         # Maximum length for episodes
         self.params['ep_len'] = self.params['ep_len'] or self.env.spec.max_episode_steps
         global MAX_VIDEO_LEN
-        MAX_VIDEO_LEN = self.params['ep_len']
+        MAX_VIDEO_LEN = min(self.params['ep_len'], MAX_VIDEO_LEN)
 
         # Is this env continuous, or self.discrete?
         discrete = isinstance(self.env.action_space, gym.spaces.Discrete)
@@ -154,10 +154,46 @@ class RL_Trainer(object):
     ####################################
 
     def collect_training_trajectories(self, itr, initial_expertdata, collect_policy, batch_size):
-        # TODO: GETTHIS from HW1
+        """
+        :param itr:
+        :param initial_expertdata:  path to expert data pkl file
+        :param collect_policy:  the current policy using which we collect data
+        :param batch_size:  the number of transitions we collect
+        :return:
+            paths: a list trajectories
+            envsteps_this_batch: the sum over the numbers of environment steps in paths
+            train_video_paths: paths which also contain videos for visualization purposes
+        """
+        # First iteration
+        start = time.time()
+        if initial_expertdata and itr == 0:
+            with open(initial_expertdata, 'rb') as f:
+                paths = pickle.load(f)
+            envsteps_this_batch = 0
+        else:
+            print("\nCollecting data to be used for training...")
+            if self.params['use_parallel']:
+                paths, envsteps_this_batch = utils.sample_trajectories_parallel_alt(self.env, collect_policy, batch_size,
+                                                                     self.params['ep_len'])
+            else:
+                paths, envsteps_this_batch = utils.sample_trajectories(self.env, collect_policy, batch_size,
+                                                                   self.params['ep_len'])
+        end = time.time()
+        print('Rollout collection time', end-start)
+        train_video_paths = None
+        if self.logvideo:
+            print('\nCollecting train rollouts to be used for saving videos...')
+            train_video_paths = utils.sample_n_trajectories(self.env, collect_policy, MAX_NVIDEO, MAX_VIDEO_LEN, True)
+        return paths, envsteps_this_batch, train_video_paths
 
     def train_agent(self):
-        # TODO: GETTHIS from HW1
+        print('\nTraining agent using sampled data from replay buffer...')
+        all_logs = []
+        for train_step in range(self.params['num_agent_train_steps_per_iter']):
+            ob_batch, ac_batch, re_batch, next_ob_batch, terminal_batch = self.agent.sample(self.params['train_batch_size'])
+            train_log = self.agent.train(ob_batch, ac_batch, re_batch, next_ob_batch, terminal_batch)
+            all_logs.append(train_log)
+        return all_logs
 
     ####################################
     ####################################

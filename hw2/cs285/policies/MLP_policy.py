@@ -10,6 +10,7 @@ from torch import distributions
 
 from cs285.infrastructure import pytorch_util as ptu
 from cs285.policies.base_policy import BasePolicy
+from cs285.infrastructure import utils
 
 
 class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
@@ -86,7 +87,14 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
     # query the policy with observation(s) to get selected action(s)
     def get_action(self, obs: np.ndarray) -> np.ndarray:
-        # TODO: get this from HW1
+        if len(obs.shape) > 1:
+            observation = obs
+        else:
+            observation = obs[None]
+        observation = ptu.from_numpy(observation)
+        action = self(observation)
+        # it is very possible that we would need to sample the distribution
+        return ptu.to_numpy(action.sample())
 
     # update/train this policy
     def update(self, observations, actions, **kwargs):
@@ -127,7 +135,9 @@ class MLPPolicyPG(MLPPolicy):
         actions = ptu.from_numpy(actions)
         advantages = ptu.from_numpy(advantages)
 
-        # TODO: update the policy using policy gradient
+        # look into the lecture where the "pseudo-gradient" is presented. I am actually not sure if the is is related
+        # to policy gradients or Q-learning. Check both lectures again though.
+        # TODO: update the policy using policy gradient, DONE
         # HINT1: Recall that the expression that we want to MAXIMIZE
             # is the expectation over collected trajectories of:
             # sum_{t=0}^{T-1} [grad [log pi(a_t|s_t) * (Q_t - b_t)]]
@@ -137,19 +147,27 @@ class MLPPolicyPG(MLPPolicy):
         # HINT4: use self.optimizer to optimize the loss. Remember to
             # 'zero_grad' first
 
-        TODO
+        pred_ac_dist = self.forward(observations)
+        loss = torch.mean(-pred_ac_dist.log_prob(actions)*advantages)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
         if self.nn_baseline:
-            ## TODO: update the neural network baseline using the q_values as
+            ## TODO: update the neural network baseline using the q_values as , DONE
             ## targets. The q_values should first be normalized to have a mean
             ## of zero and a standard deviation of one.
+            targets = ptu.from_numpy(utils.normalize(q_values, q_values.mean(), q_values.std()))
+            pred_val = self.baseline.forward(observations).squeeze()
+            baseline_loss = self.baseline_loss(pred_val, targets)
+            self.baseline_optimizer.zero_grad()
+            baseline_loss.backward()
+            self.baseline_optimizer.step()
 
             ## HINT1: use self.baseline_optimizer to optimize the loss used for
                 ## updating the baseline. Remember to 'zero_grad' first
             ## HINT2: You will need to convert the targets into a tensor using
                 ## ptu.from_numpy before using it in the loss
-
-            TODO
 
         train_log = {
             'Training Loss': ptu.to_numpy(loss),

@@ -80,6 +80,7 @@ def main():
     parser.add_argument('--which_gpu', '-gpu_id', default=0)
     parser.add_argument('--video_log_freq', type=int, default=-1)
     parser.add_argument('--scalar_log_freq', type=int, default=1)
+    parser.add_argument('--use_parallel', action='store_true')
 
     parser.add_argument('--save_params', action='store_true')
     parser.add_argument('--action_noise_std', type=float, default=0)
@@ -115,9 +116,11 @@ def main():
     ### RUN TRAINING
     ###################
 
+    start = time.time()
     trainer = PG_Trainer(params)
     trainer.run_training_loop()
-
+    end = time.time()
+    print('Total training time: ', end-start)
 
 if __name__ == "__main__":
     main()
