@@ -34,3 +34,6 @@ You may also want to look through [scripts/run_hw3_dqn.py](cs285/scripts/run_hw3
 
 See the [assignment PDF](CS285_hw3.pdf) for more details on what files to edit.
 
+###Note
+I think the implementation only works for discrete action spaces since the q-networks do not take in actions as a parameter.
+Instead, it outputs a value for each action. This is only possible for discrete action spaces.
