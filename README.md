@@ -1,4 +1,4 @@
-This repository contains my solutions for the assignments for [Berkeley CS 285: Deep Reinforcement Learning, Decision Making, and Control](http://rail.eecs.berkeley.edu/deeprlcourse/).
+This repository contains my solutions to the assignments for [Berkeley CS 285: Deep Reinforcement Learning, Decision Making, and Control](http://rail.eecs.berkeley.edu/deeprlcourse/).
 
 Based on my interest in RL, I have chosen to self study this course as it appears to be the most comprehensive course on 
 Deep RL available.
