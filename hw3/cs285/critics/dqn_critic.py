@@ -83,7 +83,7 @@ class DQNCritic(BaseCritic):
             # we need to choose which of the q-values computed above that we want to use.
             # to do this, we use the argmax of the q-values from the main q-network.
             actions = qa_t_values.argmax(dim=1)
-            q_tp1 = qa_tp1_values.gather(1, actions.unsqueeze(1))
+            q_tp1 = qa_tp1_values.gather(1, actions.unsqueeze(1)).squeeze()
         else:
             q_tp1, _ = qa_tp1_values.max(dim=1)
 

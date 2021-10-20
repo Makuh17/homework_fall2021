@@ -1,4 +1,5 @@
 *.pyc
 data/
+rars/
 *.DS_Store
 *~

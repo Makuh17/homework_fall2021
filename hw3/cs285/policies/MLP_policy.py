@@ -131,4 +131,26 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 class MLPPolicyAC(MLPPolicy):
     def update(self, observations, actions, adv_n=None):
         # TODO: update the policy and return the loss
+        # NOTE I took this from hw2
+        observations = ptu.from_numpy(observations)
+        actions = ptu.from_numpy(actions)
+        advantages = ptu.from_numpy(adv_n)
+
+        # look into the lecture where the "pseudo-gradient" is presented. I am actually not sure if the is is related
+        # to policy gradients or Q-learning. Check both lectures again though.
+        # TODO: update the policy using policy gradient, DONE
+        # HINT1: Recall that the expression that we want to MAXIMIZE
+        # is the expectation over collected trajectories of:
+        # sum_{t=0}^{T-1} [grad [log pi(a_t|s_t) * (Q_t - b_t)]]
+        # HINT2: you will want to use the `log_prob` method on the distribution returned
+        # by the `forward` method
+        # HINT3: don't forget that `optimizer.step()` MINIMIZES a loss
+        # HINT4: use self.optimizer to optimize the loss. Remember to
+        # 'zero_grad' first
+
+        pred_ac_dist = self.forward(observations)
+        loss = torch.mean(-pred_ac_dist.log_prob(actions) * advantages)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
         return loss.item()
