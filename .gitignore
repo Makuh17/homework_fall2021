@@ -1,5 +1,6 @@
 *.pyc
 data/
 rars/
+Scratch_paper.ipynb
 *.DS_Store
 *~
