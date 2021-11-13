@@ -1,8 +1,7 @@
-import torch
-
 from .base_critic import BaseCritic
 from torch import nn
 from torch import optim
+import pdb
 
 from cs285.infrastructure import pytorch_util as ptu
 
@@ -65,7 +64,6 @@ class BootstrappedContinuousCritic(nn.Module, BaseCritic):
 
             arguments:
                 ob_no: shape: (sum_of_path_lengths, ob_dim)
-                ac_na: length: sum_of_path_lengths. The action taken at the current step.
                 next_ob_no: shape: (sum_of_path_lengths, ob_dim). The observation after taking one step forward
                 reward_n: length: sum_of_path_lengths. Each element in reward_n is a scalar containing
                     the reward for each timestep
@@ -73,40 +71,10 @@ class BootstrappedContinuousCritic(nn.Module, BaseCritic):
                     at that timestep of 0 if the episode did not end
 
             returns:
-                training loss
+                nothing
         """
-        # TODO: Implement the pseudocode below: do the following (
-        # self.num_grad_steps_per_target_update * self.num_target_updates)
-        # times:
-        # every self.num_grad_steps_per_target_update steps (which includes the
-        # first step), recompute the target values by
-        #     a) calculating V(s') by querying the critic with next_ob_no
-        #     b) and computing the target values as r(s, a) + gamma * V(s')
-        # every time, update this critic using the observations and targets
-        #
-        # HINT: don't forget to use terminal_n to cut off the V(s') (ie set it
-        #       to 0) when a terminal state is reached
-        # HINT: make sure to squeeze the output of the critic_network to ensure
-        #       that its dimensions match the reward
-        observations = ptu.from_numpy(ob_no)
-        next_observations = ptu.from_numpy(next_ob_no)
-        rewards = ptu.from_numpy(reward_n)
-        terminal = ptu.from_numpy(terminal_n)
+        raise NotImplementedError
+        # Not needed for this homework
 
-        for i in range(self.num_target_updates):
-            # update the targets
-            v_s_prime = self(next_observations).squeeze()
-            target = rewards + self.gamma * v_s_prime * torch.logical_not(terminal)
-            target = target.detach()
-            for j in range(self.num_grad_steps_per_target_update):
-                # take a grad step
-                pred = self(observations).squeeze()
-                loss = self.loss(pred, target)
-                self.optimizer.zero_grad()
-                # if j == self.num_grad_steps_per_target_update - 1:
-                #     loss.backward()
-                # else:
-                loss.backward(retain_graph=True)
-                self.optimizer.step()
-
-        return loss.item()
+    ####################################
+    ####################################

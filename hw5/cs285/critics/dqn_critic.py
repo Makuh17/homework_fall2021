@@ -3,6 +3,7 @@ import torch
 import torch.optim as optim
 from torch.nn import utils
 from torch import nn
+import pdb
 
 from cs285.infrastructure import pytorch_util as ptu
 
@@ -48,7 +49,6 @@ class DQNCritic(BaseCritic):
             let num_paths be the number of paths sampled from Agent.sample_trajectories
             arguments:
                 ob_no: shape: (sum_of_path_lengths, ob_dim)
-                ac_na: length: sum_of_path_lengths. The action taken at the current step.
                 next_ob_no: shape: (sum_of_path_lengths, ob_dim). The observation after taking one step forward
                 reward_n: length: sum_of_path_lengths. Each element in reward_n is a scalar containing
                     the reward for each timestep
@@ -63,48 +63,29 @@ class DQNCritic(BaseCritic):
         reward_n = ptu.from_numpy(reward_n)
         terminal_n = ptu.from_numpy(terminal_n)
 
-        # NOTE: I think the q network has a separate output for each action. Im not sure how that works
-        # with continuous state spaces though.
         qa_t_values = self.q_net(ob_no)
         q_t_values = torch.gather(qa_t_values, 1, ac_na.unsqueeze(1)).squeeze(1)
-        # this gives us all the q-values associated with the actions that were chosen.
-        
-        # TODO compute the Q-values from the target network
         qa_tp1_values = self.q_net_target(next_ob_no)
-        # this gives us q-values for all actions for all the observations in the rollout.
 
         if self.double_q:
-            # You must fill this part for Q2 of the Q-learning portion of the homework.
-            # In double Q-learning, the best action is selected using the Q-network that
-            # is being updated, but the Q-value for this action is obtained from the
-            # target Q-network. Please review Lecture 8 for more details,
-            # and page 4 of https://arxiv.org/pdf/1509.06461.pdf is also a good reference.
-
-            # Idea: use argmax for qa_t_values and use these to index qa_tp1_values
-            # we need to choose which of the q-values computed above that we want to use.
-            # to do this, we use the argmax of the q-values from the main q-network.
-            actions = qa_t_values.argmax(dim=1)
-            q_tp1 = qa_tp1_values.gather(1, actions.unsqueeze(1)).squeeze()
+            next_actions = self.q_net(next_ob_no).argmax(dim=1)
+            q_tp1 = torch.gather(qa_tp1_values, 1, next_actions.unsqueeze(1)).squeeze(1)
         else:
             q_tp1, _ = qa_tp1_values.max(dim=1)
 
-        # TODO compute targets for minimizing Bellman error
-        # HINT: as you saw in lecture, this would be:
-            # currentReward + self.gamma * qValuesOfNextTimestep * (not terminal)
-        target = reward_n + self.gamma * q_tp1 * (-(terminal_n-1))
+        target = reward_n + self.gamma * q_tp1 * (1 - terminal_n)
         target = target.detach()
-
-        assert q_t_values.shape == target.shape
         loss = self.loss(q_t_values, target)
-
+    
         self.optimizer.zero_grad()
         loss.backward()
         utils.clip_grad_value_(self.q_net.parameters(), self.grad_norm_clipping)
         self.optimizer.step()
-        self.learning_rate_scheduler.step()
-        return {
-            'Training Loss': ptu.to_numpy(loss),
-        }
+
+        return {'Training Loss': ptu.to_numpy(loss)}
+
+    ####################################
+    ####################################
 
     def update_target_network(self):
         for target_param, param in zip(
