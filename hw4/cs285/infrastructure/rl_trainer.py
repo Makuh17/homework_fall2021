@@ -19,10 +19,9 @@ from cs285.envs import register_envs
 
 register_envs()
 
-
 # how many rollouts to save as videos to tensorboard
 MAX_NVIDEO = 2
-MAX_VIDEO_LEN = 40 # we overwrite this in the code below
+MAX_VIDEO_LEN = 40  # we overwrite this in the code below
 
 
 class RL_Trainer(object):
@@ -66,7 +65,7 @@ class RL_Trainer(object):
         self.env.seed(seed)
 
         # import plotting (locally if 'obstacles' env)
-        if not(self.params['env_name']=='obstacles-cs285-v0'):
+        if not (self.params['env_name'] == 'obstacles-cs285-v0'):
             import matplotlib
             matplotlib.use('Agg')
 
@@ -91,14 +90,13 @@ class RL_Trainer(object):
 
         # simulation timestep, will be used for video saving
         if 'model' in dir(self.env):
-            self.fps = 1/self.env.model.opt.timestep
+            self.fps = 1 / self.env.model.opt.timestep
         elif 'env_wrappers' in self.params:
-            self.fps = 30 # This is not actually used when using the Monitor wrapper
+            self.fps = 30  # This is not actually used when using the Monitor wrapper
         elif 'video.frames_per_second' in self.env.env.metadata.keys():
             self.fps = self.env.env.metadata['video.frames_per_second']
         else:
             self.fps = 10
-
 
         #############
         ## AGENT
@@ -124,7 +122,7 @@ class RL_Trainer(object):
 
         for itr in range(n_iter):
             if itr % print_period == 0:
-                print("\n\n********** Iteration %i ************"%itr)
+                print("\n\n********** Iteration %i ************" % itr)
 
             # decide if videos should be rendered/logged at this iteration
             if itr % self.params['video_log_freq'] == 0 and self.params['video_log_freq'] != -1:
@@ -177,7 +175,8 @@ class RL_Trainer(object):
     ####################################
     ####################################
 
-    def collect_training_trajectories(self, itr, initial_expertdata, collect_policy, num_transitions_to_sample, save_expert_data_to_disk=False):
+    def collect_training_trajectories(self, itr, initial_expertdata, collect_policy, num_transitions_to_sample,
+                                      save_expert_data_to_disk=False):
         """
         :param itr:
         :param load_initial_expertdata:  path to expert data pkl file
@@ -188,12 +187,41 @@ class RL_Trainer(object):
             envsteps_this_batch: the sum over the numbers of environment steps in paths
             train_video_paths: paths which also contain videos for visualization purposes
         """
-        # TODO: get this from Piazza
-
+        # First iteration
+        start = time.time()
+        if initial_expertdata and itr == 0:
+            with open(initial_expertdata, 'rb') as f:
+                paths = pickle.load(f)
+            envsteps_this_batch = 0
+        else:
+            print("\nCollecting data to be used for training...")
+            # NOTE: The parallel sampling is currently not transferred to HW4, but it should be possible to directly
+            # copy from HW2
+            if self.params['use_parallel']:
+                paths, envsteps_this_batch = utils.sample_trajectories_parallel_alt(self.env, collect_policy,
+                                                                                    num_transitions_to_sample,
+                                                                                    self.params['ep_len'])
+            else:
+                paths, envsteps_this_batch = utils.sample_trajectories(self.env, collect_policy,
+                                                                       num_transitions_to_sample,
+                                                                       self.params['ep_len'])
+        end = time.time()
+        print('Rollout collection time', end - start)
+        train_video_paths = None
+        if self.logvideo:
+            print('\nCollecting train rollouts to be used for saving videos...')
+            train_video_paths = utils.sample_n_trajectories(self.env, collect_policy, MAX_NVIDEO, MAX_VIDEO_LEN, True)
         return paths, envsteps_this_batch, train_video_paths
 
     def train_agent(self):
-    # TODO: get this from Piazza
+        # TODO: get this from Piazza
+        all_logs = []
+        for train_step in range(self.params['num_agent_train_steps_per_iter']):
+            ob_batch, ac_batch, re_batch, next_ob_batch, terminal_batch = self.agent.sample(
+                self.params['train_batch_size'])
+            train_log = self.agent.train(ob_batch, ac_batch, re_batch, next_ob_batch, terminal_batch)
+            all_logs.append(train_log)
+        return all_logs
 
     ####################################
     ####################################
@@ -205,18 +233,20 @@ class RL_Trainer(object):
 
         # collect eval trajectories, for logging
         print("\nCollecting data for eval...")
-        eval_paths, eval_envsteps_this_batch = utils.sample_trajectories(self.env, eval_policy, self.params['eval_batch_size'], self.params['ep_len'])
+        eval_paths, eval_envsteps_this_batch = utils.sample_trajectories(self.env, eval_policy,
+                                                                         self.params['eval_batch_size'],
+                                                                         self.params['ep_len'])
 
         # save eval rollouts as videos in tensorboard event file
         if self.logvideo and train_video_paths != None:
             print('\nCollecting video rollouts eval')
             eval_video_paths = utils.sample_n_trajectories(self.env, eval_policy, MAX_NVIDEO, MAX_VIDEO_LEN, True)
 
-            #save train/eval videos
+            # save train/eval videos
             print('\nSaving train rollouts as videos...')
             self.logger.log_paths_as_videos(train_video_paths, itr, fps=self.fps, max_videos_to_save=MAX_NVIDEO,
                                             video_title='train_rollouts')
-            self.logger.log_paths_as_videos(eval_video_paths, itr, fps=self.fps,max_videos_to_save=MAX_NVIDEO,
+            self.logger.log_paths_as_videos(eval_video_paths, itr, fps=self.fps, max_videos_to_save=MAX_NVIDEO,
                                             video_title='eval_rollouts')
 
         #######################
@@ -268,28 +298,29 @@ class RL_Trainer(object):
         self.fig = plt.figure()
 
         # sample actions
-        action_sequence = self.agent.actor.sample_action_sequences(num_sequences=1, horizon=10) #20 reacher
+        action_sequence = self.agent.actor.sample_action_sequences(num_sequences=1, horizon=10)  # 20 reacher
         action_sequence = action_sequence[0]
 
         # calculate and log model prediction error
-        mpe, true_states, pred_states = utils.calculate_mean_prediction_error(self.env, action_sequence, self.agent.dyn_models, self.agent.actor.data_statistics)
+        mpe, true_states, pred_states = utils.calculate_mean_prediction_error(self.env, action_sequence,
+                                                                              self.agent.dyn_models,
+                                                                              self.agent.actor.data_statistics)
         assert self.params['agent_params']['ob_dim'] == true_states.shape[1] == pred_states.shape[1]
         ob_dim = self.params['agent_params']['ob_dim']
-        ob_dim = 2*int(ob_dim/2.0) ## skip last state for plotting when state dim is odd
+        ob_dim = 2 * int(ob_dim / 2.0)  ## skip last state for plotting when state dim is odd
 
         # plot the predictions
         self.fig.clf()
         for i in range(ob_dim):
-            plt.subplot(ob_dim/2, 2, i+1)
-            plt.plot(true_states[:,i], 'g')
-            plt.plot(pred_states[:,i], 'r')
+            plt.subplot(ob_dim / 2, 2, i + 1)
+            plt.plot(true_states[:, i], 'g')
+            plt.plot(pred_states[:, i], 'r')
         self.fig.suptitle('MPE: ' + str(mpe))
-        self.fig.savefig(self.params['logdir']+'/itr_'+str(itr)+'_predictions.png', dpi=200, bbox_inches='tight')
+        self.fig.savefig(self.params['logdir'] + '/itr_' + str(itr) + '_predictions.png', dpi=200, bbox_inches='tight')
 
         # plot all intermediate losses during this iteration
         all_losses = np.array([log['Training Loss'] for log in all_logs])
-        np.save(self.params['logdir']+'/itr_'+str(itr)+'_losses.npy', all_losses)
+        np.save(self.params['logdir'] + '/itr_' + str(itr) + '_losses.npy', all_losses)
         self.fig.clf()
         plt.plot(all_losses)
-        self.fig.savefig(self.params['logdir']+'/itr_'+str(itr)+'_losses.png', dpi=200, bbox_inches='tight')
-
+        self.fig.savefig(self.params['logdir'] + '/itr_' + str(itr) + '_losses.png', dpi=200, bbox_inches='tight')

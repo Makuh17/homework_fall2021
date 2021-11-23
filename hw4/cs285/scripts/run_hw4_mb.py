@@ -88,6 +88,7 @@ def main():
     parser.add_argument('--video_log_freq', type=int, default=1) #-1 to disable
     parser.add_argument('--scalar_log_freq', type=int, default=1) #-1 to disable
     parser.add_argument('--save_params', action='store_true')
+    parser.add_argument('--use_parallel', action='store_true')
     args = parser.parse_args()
 
     # convert to dictionary
@@ -126,6 +127,7 @@ def main():
 
     trainer = MB_Trainer(params)
     trainer.run_training_loop()
+    print('Done')
 
 
 if __name__ == "__main__":
