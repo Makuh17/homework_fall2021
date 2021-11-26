@@ -218,6 +218,7 @@ class RL_Trainer(object):
             envsteps_this_batch = 0
         else:
             print("\nCollecting data to be used for training...")
+            #print(self.params['use_parallel'])
             if self.params['use_parallel']:
                 paths, envsteps_this_batch = utils.sample_trajectories_parallel_alt(self.env, collect_policy, num_transitions_to_sample,
                                                                      self.params['ep_len'])
@@ -225,7 +226,7 @@ class RL_Trainer(object):
                 paths, envsteps_this_batch = utils.sample_trajectories(self.env, collect_policy, num_transitions_to_sample,
                                                                    self.params['ep_len'])
         end = time.time()
-        print('Rollout collection time', end-start)
+        print('Rollout collection time ...', end-start)
         train_video_paths = None
         if self.logvideo:
             print('\nCollecting train rollouts to be used for saving videos...')

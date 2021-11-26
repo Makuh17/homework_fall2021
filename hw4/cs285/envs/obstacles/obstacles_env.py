@@ -72,6 +72,16 @@ class Obstacles(gym.Env):
 
         #clear
         self.counter = 0
+        # fig = self.plt.gcf()
+        # fig.canvas.draw()
+        # img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        # img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        #
+        # self.fig.canvas.draw()
+        # img_ = np.fromstring(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
+        # img_ = img_.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
+        #self.fig.clf()
+        self.plt.figure(self.fig.number)
         self.plt.clf()
 
         #return
@@ -160,7 +170,12 @@ class Obstacles(gym.Env):
     ########################################
 
     def render(self, mode=None):
+        #self.plt.show()
         # boundaries
+        # self.fig.canvas.draw()
+        # img = np.fromstring(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
+        # img = img.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
+        # img_tmp = np.transpose(img, [2, 0, 1])
         self.plt.plot([self.boundary_min, self.boundary_min],
                       [self.boundary_min, self.boundary_max], 'k')
         self.plt.plot([self.boundary_max, self.boundary_max],
@@ -187,8 +202,10 @@ class Obstacles(gym.Env):
         self.plt.plot(self.end[0], self.end[1], 'go')
         self.plt.plot(self.current[0], self.current[1], 'ko')
         self.fig.canvas.draw()
+        #self.plt.show()
         img = np.fromstring(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
         img = img.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
+        img_tmp = np.transpose(img, [2, 0, 1])
         return img
 
     def is_valid(self, dat):

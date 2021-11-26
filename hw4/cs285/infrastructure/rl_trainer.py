@@ -20,7 +20,7 @@ from cs285.envs import register_envs
 register_envs()
 
 # how many rollouts to save as videos to tensorboard
-MAX_NVIDEO = 2
+MAX_NVIDEO = 1
 MAX_VIDEO_LEN = 40  # we overwrite this in the code below
 
 
@@ -246,6 +246,8 @@ class RL_Trainer(object):
             print('\nSaving train rollouts as videos...')
             self.logger.log_paths_as_videos(train_video_paths, itr, fps=self.fps, max_videos_to_save=MAX_NVIDEO,
                                             video_title='train_rollouts')
+            eval_imgs = eval_video_paths[0]['image_obs']
+            eval_imgs = np.transpose(eval_imgs, [0, 3, 1, 2])
             self.logger.log_paths_as_videos(eval_video_paths, itr, fps=self.fps, max_videos_to_save=MAX_NVIDEO,
                                             video_title='eval_rollouts')
 

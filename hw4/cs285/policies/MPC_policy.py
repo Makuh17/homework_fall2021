@@ -85,10 +85,13 @@ class MPCPolicy(BasePolicy):
         #
         # Then, return the mean predictions across all ensembles.
         # Hint: the return value should be an array of shape (N,)
+        n_action_seq = candidate_action_sequences.shape[0]
+        mean_return = np.zeros((n_action_seq,))
         for model in self.dyn_models:
-            pass
+            mean_return += self.calculate_sum_of_rewards(obs, candidate_action_sequences, model)
+        mean_return = mean_return/n_action_seq
 
-        return TODO
+        return mean_return
 
     def get_action(self, obs):
         if self.data_statistics is None:
@@ -105,8 +108,8 @@ class MPCPolicy(BasePolicy):
             predicted_rewards = self.evaluate_candidate_sequences(candidate_action_sequences, obs)
 
             # pick the action sequence and return the 1st element of that sequence
-            best_action_sequence = None  # TODO (Q2)
-            action_to_take = None  # TODO (Q2)
+            best_action_sequence = candidate_action_sequences[np.argmax(predicted_rewards), :, :]  # TODO (Q2)
+            action_to_take = best_action_sequence[0, :]  # TODO (Q2)
             return action_to_take[None]  # Unsqueeze the first index
 
     def calculate_sum_of_rewards(self, obs, candidate_action_sequences, model):
@@ -122,7 +125,17 @@ class MPCPolicy(BasePolicy):
         :return: numpy array with the sum of rewards for each action sequence.
         The array should have shape [N].
         """
-        sum_of_rewards = None  # TODO (Q2)
+        n_action_sequences = candidate_action_sequences.shape[0]
+        horizon = candidate_action_sequences.shape[1]
+        rewards = np.zeros((n_action_sequences, horizon))
+        pred_obs = np.tile(obs, (n_action_sequences, 1))
+        for t in range(horizon):
+            actions_N = candidate_action_sequences[:, t, :]
+            rew, done = self.env.get_reward(pred_obs, actions_N)
+            rewards[:, t] = rew
+            pred_obs = model.get_prediction(pred_obs, actions_N, self.data_statistics)
+
+        sum_of_rewards = np.sum(rewards, axis=1)  # TODO (Q2)
         # For each candidate action sequence, predict a sequence of
         # states for each dynamics model in your ensemble.
         # Once you have a sequence of predicted states from each model in
